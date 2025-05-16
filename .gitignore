@@ -1,0 +1,31 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.log
+
+# === VSCode ===
+.vscode/
+
+# === Environment Files ===
+.env
+.venv/
+venv/
+env/
+
+# === Model Files ===
+*.pt
+*.pth
+vocab.txt
+models/
+
+# === OS Files ===
+.DS_Store
+Thumbs.db
+
+# === Render Log ===
+render.yaml

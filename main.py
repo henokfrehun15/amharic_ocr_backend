@@ -9,13 +9,34 @@ import numpy as np
 from PIL import Image
 from torchvision import transforms
 from ultralytics import YOLO
+import gdown
+
+# ========== Download Models ==========
+def download_models():
+    model_dir = "models"
+    os.makedirs(model_dir, exist_ok=True)
+
+    model_files = {
+        "amharic_yolov8l.pt": "10FsCWtmnUehf9KVRLMSF7F436pSZ8CLd",
+        "amharic_best.pth": "1yehU6v6_CnX05xfgtOwDl0Za1FtXuUoI",
+        "vocab.txt": "1xh5fwLlE0oAhdP0HFGMfDB0rXR4Cdgz2"
+    }
+
+    for filename, file_id in model_files.items():
+        output_path = os.path.join(model_dir, filename)
+        if not os.path.exists(output_path):
+            print(f"📥 Downloading {filename}...")
+            gdown.download(id=file_id, output=output_path, quiet=False)
+        else:
+            print(f"✅ {filename} already exists.")
+
+download_models()  # Only one call and one definition
 
 # ========== Setup ==========
 app = FastAPI()
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# ========== CRNN Definition ==========
+# ========== CRNN Model ==========
 class CRNN(nn.Module):
     def __init__(self, num_classes):
         super(CRNN, self).__init__()
@@ -37,9 +58,11 @@ class CRNN(nn.Module):
         return torch.nn.functional.log_softmax(self.fc(x), dim=2)
 
 # ========== Load Models ==========
-yolo_model = YOLO("amharic_yolov8l.pt")
+model_dir = "models"
+yolo_model = YOLO(os.path.join(model_dir, "amharic_yolov8l.pt"))
 
-vocab = [line.strip() for line in open("vocab.txt", encoding="utf-8").readlines()]
+vocab_path = os.path.join(model_dir, "vocab.txt")
+vocab = [line.strip() for line in open(vocab_path, encoding="utf-8").readlines()]
 if "<blank>" not in vocab:
     vocab.append("<blank>")
 if " " not in vocab:
@@ -49,17 +72,17 @@ char2idx = {char: idx for idx, char in enumerate(vocab)}
 idx2char = {idx: char for char, idx in char2idx.items()}
 
 crnn = CRNN(num_classes=len(vocab))
-crnn.load_state_dict(torch.load("amharic_best.pth", map_location=device))
+crnn.load_state_dict(torch.load(os.path.join(model_dir, "amharic_best.pth"), map_location=device))
 crnn.to(device).eval()
 
-# ========== Image Transform ==========
+# ========== Image Preprocessing ==========
 transform = transforms.Compose([
     transforms.Grayscale(),
     transforms.Resize((32, 128)),
     transforms.ToTensor(),
 ])
 
-# ========== Utility Functions ==========
+# ========== Helper Functions ==========
 def decode_prediction(prediction):
     pred_indices = prediction.argmax(2).permute(1, 0)
     decoded_texts = []
