@@ -17,7 +17,7 @@ def download_models():
     os.makedirs(model_dir, exist_ok=True)
 
     model_files = {
-        "amharic_yolov8l.pt": "10FsCWtmnUehf9KVRLMSF7F436pSZ8CLd",
+        "amharic_yolov8n.pt": "17CUOjC-s0iWKAZWIwRbOLTfFMe_nT687",
         "amharic_best.pth": "1yehU6v6_CnX05xfgtOwDl0Za1FtXuUoI",
         "vocab.txt": "1xh5fwLlE0oAhdP0HFGMfDB0rXR4Cdgz2"
     }
@@ -59,7 +59,7 @@ class CRNN(nn.Module):
 
 # ========== Load Models ==========
 model_dir = "models"
-yolo_model = YOLO(os.path.join(model_dir, "amharic_yolov8l.pt"))
+yolo_model = YOLO(os.path.join(model_dir, "amharic_yolov8n.pt"))
 
 vocab_path = os.path.join(model_dir, "vocab.txt")
 vocab = [line.strip() for line in open(vocab_path, encoding="utf-8").readlines()]

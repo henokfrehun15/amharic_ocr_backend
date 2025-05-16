@@ -1,31 +1,37 @@
-# === Python ===
+# === Python Bytecode and C Extensions ===
 __pycache__/
 *.py[cod]
 *.so
+
+# === Distribution / Packaging ===
 *.egg
 *.egg-info/
 dist/
 build/
+
+# === Logs and Databases ===
 *.log
+*.sqlite3
 
-# === VSCode ===
-.vscode/
-
-# === Environment Files ===
+# === Virtual Environments ===
 .env
 .venv/
 venv/
 env/
 
-# === Model Files ===
+# === IDEs ===
+.vscode/
+.idea/
+
+# === Model Files and Folder ===
+models/
 *.pt
 *.pth
 vocab.txt
-models/
-
 # === OS Files ===
 .DS_Store
 Thumbs.db
 
-# === Render Log ===
+# === Render Specific ===
 render.yaml
+
