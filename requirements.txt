@@ -7,3 +7,4 @@ opencv-python
 ultralytics
 gdown
 numpy
+python-multipart
