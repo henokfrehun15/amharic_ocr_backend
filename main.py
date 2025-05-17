@@ -150,9 +150,28 @@ async def ocr_endpoint(file: UploadFile = File(...)):
         temp_path = f"temp_{file.filename}"
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-
-        text = recognize_text(temp_path)
+        
+        # Add timeout handling
+        try:
+            text = await asyncio.wait_for(
+                asyncio.to_thread(recognize_text, temp_path),
+                timeout=110  # Under Render's 120s limit
+            )
+        except asyncio.TimeoutError:
+            raise HTTPException(status_code=504, detail="Processing timeout")
+            
         os.remove(temp_path)
+        gc.collect()
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None
         return {"recognized_text": text}
+        
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ========== Startup Event ==========  ← ADD THIS NEW SECTION
+
+# Add this at the VERY BOTTOM of the file
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

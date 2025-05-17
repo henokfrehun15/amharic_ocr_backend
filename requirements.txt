@@ -8,3 +8,4 @@ ultralytics
 gdown
 numpy
 python-multipart
+gunicorn
