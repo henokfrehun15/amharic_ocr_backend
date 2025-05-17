@@ -12,7 +12,7 @@ from PIL import Image
 from torchvision import transforms
 from ultralytics import YOLO
 import gdown
-
+import time
 # ========== Download Models ==========
 def download_models():
     model_dir = "models"

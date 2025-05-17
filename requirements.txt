@@ -5,7 +5,7 @@ torchvision
 Pillow
 opencv-python
 ultralytics
-gdown
 numpy
 python-multipart
 gunicorn
+gdown
