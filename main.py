@@ -114,61 +114,76 @@ def sort_boxes(boxes):
     return lines
 
 def recognize_text(image_path):
-    print("🚀 Running inference on:", image_path)
-    results = yolo_model(image_path, conf=0.25, max_det=1000 , imgsz=320)[0]
-    print("✅ YOLO inference complete.")
-    boxes = results.boxes.xyxy.cpu().numpy()
-    print("🧱 Boxes detected:", len(boxes))
-    img = cv2.imread(image_path)
-    if img is None:
-        return "❌ Failed to read image."
-    word_boxes = [(int(x1), int(y1), int(x2), int(y2)) for x1, y1, x2, y2 in boxes]
+    print(f"🟠 Processing {image_path}")  # Debug
+    try:
+        print("🚀 Running inference on:", image_path)
+        results = yolo_model(image_path, conf=0.25, max_det=1000 , imgsz=320)[0]
+        print("✅ YOLO inference complete.")
+        boxes = results.boxes.xyxy.cpu().numpy()
+        print("🧱 Boxes detected:", len(boxes))
+        img = cv2.imread(image_path)
+        if img is None:
+            return "❌ Failed to read image."
+        word_boxes = [(int(x1), int(y1), int(x2), int(y2)) for x1, y1, x2, y2 in boxes]
 
-    sorted_lines = sort_boxes(word_boxes)
-    final_text = []
+        sorted_lines = sort_boxes(word_boxes)
+        final_text = []
 
-    for line in sorted_lines:
-        line_words, prev_x2 = "", None
-        for x1, y1, x2, y2 in line:
-            crop = img[y1:y2, x1:x2]
-            pil_crop = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
-            input_tensor = transform(pil_crop).unsqueeze(0).to(device)
-            with torch.no_grad():
-                output = crnn(input_tensor)
-            text = decode_prediction(output)[0]
-            if prev_x2 is not None:
-                gap = x1 - prev_x2
-                spaces = max(1, int(gap / 10))
-                line_words += " " * spaces
-            line_words += text
-            prev_x2 = x2
-        final_text.append(line_words)
-    return "\n".join(final_text)
+        for line in sorted_lines:
+            line_words, prev_x2 = "", None
+            for x1, y1, x2, y2 in line:
+                crop = img[y1:y2, x1:x2]
+                pil_crop = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB))
+                input_tensor = transform(pil_crop).unsqueeze(0).to(device)
+                with torch.no_grad():
+                    output = crnn(input_tensor)
+                text = decode_prediction(output)[0]
+                if prev_x2 is not None:
+                    gap = x1 - prev_x2
+                    spaces = max(1, int(gap / 10))
+                    line_words += " " * spaces
+                line_words += text
+                prev_x2 = x2
+            final_text.append(line_words)
+        return "\n".join(final_text)
+        if not final_text:  # Add validation
+                print("🟡 Warning: Empty recognition result")
+                return "No text detected"
+                
+        print(f"🟢 Recognized text: {final_text}")
+        return final_text
+        
+    except Exception as e:
+        print(f"🔴 Recognition error: {str(e)}")
+        return None
 
 # ========== Endpoint ==========
 @app.post("/ocr")
 async def ocr_endpoint(file: UploadFile = File(...)):
+    print("🔵 OCR endpoint called")  # Debug
     try:
         temp_path = f"temp_{file.filename}"
+        print(f"🟠 Saving to {temp_path}")  # Debug
+        
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-
-        try:
-            # Add timeout handling
-            text = await asyncio.wait_for(
-                asyncio.to_thread(recognize_text, temp_path),
-                timeout=110  # Under Render's 120s limit
-            )
-        except asyncio.TimeoutError:
-            raise HTTPException(status_code=504, detail="Processing timeout")
-
-        os.remove(temp_path)
-        gc.collect()
-        torch.cuda.empty_cache() if torch.cuda.is_available() else None
-        return {"recognized_text": text}
+        
+        print("🟡 Starting recognition...")  # Debug
+        text = await asyncio.wait_for(
+            asyncio.to_thread(recognize_text, temp_path),
+            timeout=110
+        )
+        
+        print(f"🟢 Recognition complete: {text}")  # Debug
+        return {"text": text}
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"🔴 Error: {str(e)}")  # Debug
+        raise HTTPException(500, str(e))
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        print("🟣 Cleanup complete")  # Debug
 
 # ========== Startup Event ==========  ← ADD THIS NEW SECTION
 
