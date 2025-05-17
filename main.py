@@ -1,6 +1,6 @@
 import asyncio
 import gc
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile,HTTPException
 from fastapi.responses import JSONResponse
 import shutil
 import os
@@ -169,9 +169,11 @@ def recognize_text(image_path):
         return None
 
 # ========== Endpoint ==========
-@app.post("/ocr")
+from fastapi.responses import PlainTextResponse
+@app.post("/ocr", response_class=PlainTextResponse)
 async def ocr_endpoint(file: UploadFile = File(...)):
     print("🔵 [1/5] Endpoint called")  # Debug 1
+    temp_path = None
     try:
         # Verify file received
         print(f"🔵 [2/5] Received file: {file.filename}, {file.size} bytes")  # Debug 2
@@ -189,21 +191,21 @@ async def ocr_endpoint(file: UploadFile = File(...)):
                 timeout=110
             )
             print(f"🔵 [5/5] Recognition complete: {text}")  # Debug 5
-            return {"status": "success", "text": text}
+            
+            # Return as plain text (not dict!)
+            return text if text else "No text detected"
             
         except asyncio.TimeoutError:
-            raise HTTPException(504, "Processing timeout")
+            return "Error: Processing timeout"
             
     except Exception as e:
         print(f"🔴 ERROR: {str(e)}")  # Debug error
-        raise HTTPException(500, str(e))
+        return f"Error: {str(e)}"
         
     finally:
-        if os.path.exists(temp_path):
+        if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
         print("🟣 Cleanup complete")  # Debug cleanup
-# ========== Startup Event ==========  ← ADD THIS NEW SECTION
-
 # Add this at the VERY BOTTOM of the file
 if __name__ == "__main__":
     import uvicorn
