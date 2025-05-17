@@ -114,21 +114,17 @@ def sort_boxes(boxes):
     return lines
 
 def recognize_text(image_path):
-    print(f"🟠 Processing {image_path}")  # Debug
+    print(f"🟠 Processing {image_path}")
     try:
-         # Verify file exists
-        if not os.path.exists(image_path):
-            print("🔴 [A1] File not found")
-            return None
-            
-        # Verify image can be read
+        # 1. Verify image can be read
         img = cv2.imread(image_path)
         if img is None:
-            print("🔴 [A2] Failed to read image")
+            print("🔴 Error: Failed to read image")
             return None
             
-        print("🚀 Running inference on:", image_path)
-        results = yolo_model(image_path, conf=0.25, max_det=1000 , imgsz=320)[0]
+        # 2. Process with YOLO
+        print("🟠 Running YOLO detection")
+        results = yolo_model(img, conf=0.25, imgsz=640,max_det=1000)[0]
         print("✅ YOLO inference complete.")
         boxes = results.boxes.xyxy.cpu().numpy()
         print("🧱 Boxes detected:", len(boxes))
@@ -157,11 +153,11 @@ def recognize_text(image_path):
                 prev_x2 = x2
             final_text.append(line_words)
         return "\n".join(final_text)
-        if not final_text:  # Add validation
-                print("🟡 Warning: Empty recognition result")
-                return "No text detected"
-                
-        print(f"🟢 Recognized text: {final_text}")
+        if not final_text:
+            print("🟠 Warning: Empty recognition result")
+            return None
+            
+        print(f"🟢 Recognized {len(final_text)} characters")
         return final_text
         
     except Exception as e:
@@ -170,42 +166,56 @@ def recognize_text(image_path):
 
 # ========== Endpoint ==========
 from fastapi.responses import PlainTextResponse
-@app.post("/ocr", response_class=PlainTextResponse)
+@app.post("/ocr")
 async def ocr_endpoint(file: UploadFile = File(...)):
-    print("🔵 [1/5] Endpoint called")  # Debug 1
+    print("🔵 [1/6] Endpoint called")  # Debug 1
     temp_path = None
     try:
-        # Verify file received
-        print(f"🔵 [2/5] Received file: {file.filename}, {file.size} bytes")  # Debug 2
+        # 1. Verify file received
+        print(f"🔵 [2/6] Received file: {file.filename}, {file.size} bytes")  # Debug 2
         
-        temp_path = f"temp_{file.filename}"
+        # 2. Save file
+        temp_dir = "temp_uploads"
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_path = os.path.join(temp_dir, f"upload_{int(time.time())}.jpg")
+        
         with open(temp_path, "wb") as buffer:
+            await file.seek(0)  # Rewind file pointer
             shutil.copyfileobj(file.file, buffer)
-        print(f"🔵 [3/5] Saved to {temp_path}")  # Debug 3
-        
-        # Process with timeout
+        print(f"🔵 [3/6] Saved to {temp_path}")  # Debug 3
+
+        # 3. Verify file exists and is readable
+        if not os.path.exists(temp_path):
+            print("🔴 Error: Temp file not created")
+            return PlainTextResponse("Error: File processing failed", status_code=500)
+            
+        # 4. Process with timeout
+        print("🔵 [4/6] Starting recognition...")  # Debug 4
         try:
-            print("🔵 [4/5] Starting recognition...")  # Debug 4
             text = await asyncio.wait_for(
                 asyncio.to_thread(recognize_text, temp_path),
                 timeout=110
             )
-            print(f"🔵 [5/5] Recognition complete: {text}")  # Debug 5
+            print(f"🔵 [5/6] Recognition complete")  # Debug 5
             
-            # Return as plain text (not dict!)
-            return text if text else "No text detected"
+            if not text:
+                return PlainTextResponse("No text detected", status_code=200)
+                
+            return PlainTextResponse(text)
             
         except asyncio.TimeoutError:
-            return "Error: Processing timeout"
+            print("🔴 Error: Processing timeout")
+            return PlainTextResponse("Error: Processing timeout", status_code=504)
             
     except Exception as e:
-        print(f"🔴 ERROR: {str(e)}")  # Debug error
-        return f"Error: {str(e)}"
+        print(f"🔴 [6/6] Unexpected error: {str(e)}")  # Debug 6
+        return PlainTextResponse(f"Error: {str(e)}", status_code=500)
         
     finally:
+        # 5. Cleanup
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
-        print("🟣 Cleanup complete")  # Debug cleanup
+        print("🟣 Cleanup complete")
 # Add this at the VERY BOTTOM of the file
 if __name__ == "__main__":
     import uvicorn
