@@ -1,3 +1,5 @@
+import asyncio
+import gc
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 import shutil
@@ -150,16 +152,16 @@ async def ocr_endpoint(file: UploadFile = File(...)):
         temp_path = f"temp_{file.filename}"
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        
-        # Add timeout handling
+
         try:
+            # Add timeout handling
             text = await asyncio.wait_for(
                 asyncio.to_thread(recognize_text, temp_path),
                 timeout=110  # Under Render's 120s limit
             )
         except asyncio.TimeoutError:
             raise HTTPException(status_code=504, detail="Processing timeout")
-            
+
         os.remove(temp_path)
         gc.collect()
         torch.cuda.empty_cache() if torch.cuda.is_available() else None
