@@ -116,6 +116,17 @@ def sort_boxes(boxes):
 def recognize_text(image_path):
     print(f"🟠 Processing {image_path}")  # Debug
     try:
+         # Verify file exists
+        if not os.path.exists(image_path):
+            print("🔴 [A1] File not found")
+            return None
+            
+        # Verify image can be read
+        img = cv2.imread(image_path)
+        if img is None:
+            print("🔴 [A2] Failed to read image")
+            return None
+            
         print("🚀 Running inference on:", image_path)
         results = yolo_model(image_path, conf=0.25, max_det=1000 , imgsz=320)[0]
         print("✅ YOLO inference complete.")
@@ -160,31 +171,37 @@ def recognize_text(image_path):
 # ========== Endpoint ==========
 @app.post("/ocr")
 async def ocr_endpoint(file: UploadFile = File(...)):
-    print("🔵 OCR endpoint called")  # Debug
+    print("🔵 [1/5] Endpoint called")  # Debug 1
     try:
-        temp_path = f"temp_{file.filename}"
-        print(f"🟠 Saving to {temp_path}")  # Debug
+        # Verify file received
+        print(f"🔵 [2/5] Received file: {file.filename}, {file.size} bytes")  # Debug 2
         
+        temp_path = f"temp_{file.filename}"
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+        print(f"🔵 [3/5] Saved to {temp_path}")  # Debug 3
         
-        print("🟡 Starting recognition...")  # Debug
-        text = await asyncio.wait_for(
-            asyncio.to_thread(recognize_text, temp_path),
-            timeout=110
-        )
-        
-        print(f"🟢 Recognition complete: {text}")  # Debug
-        return {"text": text}
-        
+        # Process with timeout
+        try:
+            print("🔵 [4/5] Starting recognition...")  # Debug 4
+            text = await asyncio.wait_for(
+                asyncio.to_thread(recognize_text, temp_path),
+                timeout=110
+            )
+            print(f"🔵 [5/5] Recognition complete: {text}")  # Debug 5
+            return {"status": "success", "text": text}
+            
+        except asyncio.TimeoutError:
+            raise HTTPException(504, "Processing timeout")
+            
     except Exception as e:
-        print(f"🔴 Error: {str(e)}")  # Debug
+        print(f"🔴 ERROR: {str(e)}")  # Debug error
         raise HTTPException(500, str(e))
+        
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
-        print("🟣 Cleanup complete")  # Debug
-
+        print("🟣 Cleanup complete")  # Debug cleanup
 # ========== Startup Event ==========  ← ADD THIS NEW SECTION
 
 # Add this at the VERY BOTTOM of the file
