@@ -59,7 +59,7 @@ class CRNN(nn.Module):
 
 # ========== Load Models ==========
 model_dir = "models"
-yolo_model = YOLO(os.path.join(model_dir, "amharic_yolov8n.pt"))
+yolo_model = YOLO(os.path.join(model_dir, "amharic_yolov8n.pt")).half()
 
 vocab_path = os.path.join(model_dir, "vocab.txt")
 vocab = [line.strip() for line in open(vocab_path, encoding="utf-8").readlines()]
@@ -71,7 +71,7 @@ if " " not in vocab:
 char2idx = {char: idx for idx, char in enumerate(vocab)}
 idx2char = {idx: char for char, idx in char2idx.items()}
 
-crnn = CRNN(num_classes=len(vocab))
+crnn = CRNN(num_classes=len(vocab)).half()
 crnn.load_state_dict(torch.load(os.path.join(model_dir, "amharic_best.pth"), map_location=device))
 crnn.to(device).eval()
 
@@ -113,7 +113,7 @@ def sort_boxes(boxes):
 
 def recognize_text(image_path):
     print("🚀 Running inference on:", image_path)
-    results = yolo_model(image_path, conf=0.25, max_det=1000)[0]
+    results = yolo_model(image_path, conf=0.25, max_det=1000 , imgsz=320)[0]
     print("✅ YOLO inference complete.")
     boxes = results.boxes.xyxy.cpu().numpy()
     print("🧱 Boxes detected:", len(boxes))
