@@ -112,9 +112,14 @@ def sort_boxes(boxes):
     return lines
 
 def recognize_text(image_path):
+    print("🚀 Running inference on:", image_path)
     results = yolo_model(image_path, conf=0.25, max_det=1000)[0]
+    print("✅ YOLO inference complete.")
     boxes = results.boxes.xyxy.cpu().numpy()
+    print("🧱 Boxes detected:", len(boxes))
     img = cv2.imread(image_path)
+    if img is None:
+        return "❌ Failed to read image."
     word_boxes = [(int(x1), int(y1), int(x2), int(y2)) for x1, y1, x2, y2 in boxes]
 
     sorted_lines = sort_boxes(word_boxes)
